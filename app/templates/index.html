@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NetSentinel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">NetSentinel</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/anomalies">Anomalies</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/generate">Regenerate Data</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container my-5">
+        <div class="text-center mb-5">
+            <h1 class="display-5">Welcome to NetSentinel</h1>
+            <p class="lead">
+                Detect and visualize suspicious login behavior in real-time.
+            </p>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="row text-center mb-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Top Offending Users</h5>
+                        <ul class="list-group" id="topOffenders"></ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Anomaly Summary</h5>
+                        <canvas id="summaryChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Config Form -->
+        <div class="card shadow-sm mb-5">
+            <div class="card-body">
+                <h4 class="card-title mb-4">Detection Rule Settings</h4>
+                <form method="POST" action="/save-config">
+                    <div class="mb-3">
+                        <label class="form-label">Max Failed Logins</label>
+                        <input type="number" class="form-control" name="max_failed_logins"
+                               value="{{ config.max_failed_logins }}" min="1" max="10" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Location Change Window (minutes)</label>
+                        <input type="number" class="form-control" name="location_window_minutes"
+                               value="{{ config.location_window_minutes }}" min="5" max="240" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Multi-IP Window (minutes)</label>
+                        <input type="number" class="form-control" name="multi_ip_window_minutes"
+                               value="{{ config.multi_ip_window_minutes }}" min="5" max="240" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Abnormal Login Hours (comma-separated)</label>
+                        <input type="text" class="form-control" name="abnormal_hours"
+                               value="{{ config.abnormal_hours | join(',') }}" placeholder="e.g., 2,3,4">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ignored Country Codes (comma-separated)</label>
+                        <input type="text" class="form-control" name="ignored_countries"
+                               value="{{ config.ignored_countries | join(',') }}" placeholder="e.g., US,UK,DE">
+                    </div>
+                    <button type="submit" class="btn btn-success">Save Settings</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Navigation Button to Anomalies -->
+        <div class="text-center mb-5">
+            <a href="/anomalies" class="btn btn-outline-primary btn-lg px-4">View Anomalies Dashboard</a>
+        </div>
+    </div>
+
+    <script>
+        // Load anomaly counts and top offenders
+        fetch('/anomaly-stats')
+            .then(res => res.json())
+            .then(data => {
+                // Render summary chart
+                const ctx = document.getElementById('summaryChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: Object.keys(data),
+                        datasets: [{
+                            data: Object.values(data),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: { responsive: true }
+                });
+
+                // Top offenders
+                const offenders = {};
+                fetch('/anomalies').then(res => res.text()).then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const rows = doc.querySelectorAll('tbody tr');
+                    rows.forEach(row => {
+                        const user = row.children[1]?.innerText;
+                        if (user) offenders[user] = (offenders[user] || 0) + 1;
+                    });
+                    const sorted = Object.entries(offenders).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                    const list = document.getElementById('topOffenders');
+                    sorted.forEach(([user, count]) => {
+                        const li = document.createElement('li');
+                        li.className = "list-group-item d-flex justify-content-between align-items-center";
+                        li.innerHTML = `<strong>${user}</strong><span class="badge bg-danger rounded-pill">${count}</span>`;
+                        list.appendChild(li);
+                    });
+                });
+            });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Anomalies - NetSentinel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">NetSentinel</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/anomalies">Anomalies</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/generate">Regenerate Data</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-4">
+        <h1 class="mb-4">Detected Anomalies</h1>
+
+        <div class="mb-5">
+            <canvas id="anomalyChart" height="150"></canvas>
+        </div>
+
+        <div class="mb-5">
+            <h3>Login Activity Over Time</h3>
+            <canvas id="loginChart" height="150"></canvas>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Rule</th>
+                        <th>User</th>
+                        <th>Time</th>
+                        <th>IP</th>
+                        <th>From</th>
+                        <th>To</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in anomalies %}
+                    <tr>
+                        <td>{{ a.rule }}</td>
+                        <td>{{ a.user }}</td>
+                        <td>{{ a.time }}</td>
+                        <td>{{ a.ip or '' }}</td>
+                        <td>{{ a.from or '' }}</td>
+                        <td>{{ a.to or '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Chart: Anomaly Types (Color Coded) -->
+    <script>
+        fetch('/anomaly-stats')
+            .then(res => res.json())
+            .then(data => {
+                const ctx = document.getElementById('anomalyChart').getContext('2d');
+                const labels = Object.keys(data);
+                const counts = Object.values(data);
+
+                const colorMap = {
+                    'Location change within 1 hour': '#3b82f6',
+                    'Login during abnormal hours': '#ec4899',
+                    'Multiple IPs within 1 hour': '#f97316',
+                    'Too many failed logins': '#facc15'
+                };
+
+                const backgroundColors = labels.map(label => colorMap[label] || '#999');
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Anomaly Count',
+                            data: counts,
+                            backgroundColor: backgroundColors,
+                            borderColor: backgroundColors,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            });
+    </script>
+
+    <!-- Chart: Login Activity -->
+    <script>
+        fetch('/login-activity')
+            .then(res => res.json())
+            .then(data => {
+                const ctx = document.getElementById('loginChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Object.keys(data),
+                        datasets: [{
+                            label: 'Logins per Hour',
+                            data: Object.values(data),
+                            fill: false,
+                            borderColor: '#1f6feb',
+                            borderWidth: 2,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                ticks: {
+                                    maxTicksLimit: 10,
+                                    autoSkip: true
+                                }
+                            },
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            });
+    </script>
+
+</body>
+</html>

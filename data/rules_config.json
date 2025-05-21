@@ -1,0 +1,14 @@
+{
+  "max_failed_logins": 5,
+  "location_window_minutes": 60,
+  "multi_ip_window_minutes": 62,
+  "abnormal_hours": [
+    2,
+    3
+  ],
+  "ignored_countries": [
+    "UK",
+    "DE",
+    "CA"
+  ]
+}
